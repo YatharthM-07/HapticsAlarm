@@ -7,11 +7,7 @@ struct AlarmRingingView: View {
     
     let alarm: Alarm
     
-    // Hold progress
-    @State private var progress: Double = 0
-    @State private var holdTimer: Timer?
-    
-    // UI state
+    @State private var progress: CGFloat = 0
     @State private var buttonPosition: CGPoint = .zero
     @State private var backgroundPulse: Double = 0.28
     
@@ -20,7 +16,7 @@ struct AlarmRingingView: View {
             
             ZStack {
                 
-                // Neon breathing background
+                // Background – neon breathing glow
                 Color.black
                     .overlay(
                         RadialGradient(
@@ -37,7 +33,6 @@ struct AlarmRingingView: View {
                         .blur(radius: 200)
                     )
                     .ignoresSafeArea()
-                    .animation(.easeInOut(duration: 1.8), value: backgroundPulse)
                 
                 VStack(spacing: 20) {
                     
@@ -52,7 +47,6 @@ struct AlarmRingingView: View {
                     
                     Spacer()
                     
-                    // Reactive center glow
                     Circle()
                         .fill(Color.cyan.opacity(Double(viewModel.intensity)))
                         .frame(
@@ -60,7 +54,8 @@ struct AlarmRingingView: View {
                             height: 140 + CGFloat(viewModel.intensity * 160)
                         )
                         .blur(radius: 70)
-                        .animation(.easeInOut(duration: 1.2), value: viewModel.intensity)
+                        .animation(.easeInOut(duration: 1.2),
+                                   value: viewModel.intensity)
                     
                     Spacer()
                 }
@@ -73,6 +68,11 @@ struct AlarmRingingView: View {
             .onAppear {
                 viewModel.startAlarm(soundID: alarm.soundID)
                 generateRandomPosition(in: geometry.size)
+                
+                withAnimation(.easeInOut(duration: 2)
+                    .repeatForever(autoreverses: true)) {
+                    backgroundPulse = 0.38
+                }
             }
             .onDisappear {
                 viewModel.stopAlarm()
@@ -80,59 +80,29 @@ struct AlarmRingingView: View {
         }
     }
     
-    // MARK: Stop Button
-    
     private var holdButton: some View {
+
         ZStack {
-            
-            // Dark base
+
             Circle()
-                .fill(Color.black.opacity(0.7))
-                .frame(width: 190, height: 190)
-            
-            // Bloom halo
-            Circle()
-                .stroke(Color.cyan.opacity(0.8 * progress), lineWidth: 12)
-                .blur(radius: 25)
-                .frame(width: 190, height: 190)
-            
-            vortexLayer(
-                trim: 0.35,
-                lineWidth: 6,
-                colors: [.cyan, .white, .blue],
-                rotation: 1.2
+                .fill(Color.black.opacity(0.75))
+                .frame(width: 220, height: 220)
+
+            NeonVortexProgress(
+                progress: progress,
+                size: 220
             )
-            
-            vortexLayer(
-                trim: 0.45,
-                lineWidth: 4,
-                colors: [.white, .cyan],
-                rotation: -0.8
-            )
-            
-            vortexLayer(
-                trim: 0.25,
-                lineWidth: 3,
-                colors: [.cyan, .purple],
-                rotation: 0.6
-            )
-            
-            vortexLayer(
-                trim: 0.15,
-                lineWidth: 2,
-                colors: [.white],
-                rotation: -1.5
-            )
-            
+
             Text("Hold to Stop")
                 .foregroundColor(.white)
                 .font(.headline)
         }
+        .contentShape(Circle())
         .gesture(
-            LongPressGesture(minimumDuration: 5)
+            DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    if holdTimer == nil {
-                        startHoldProgress()
+                    if progress == 0 {
+                        startHold()
                     }
                 }
                 .onEnded { _ in
@@ -140,61 +110,49 @@ struct AlarmRingingView: View {
                 }
         )
     }
-    
-    // MARK: Vortex Builder
-    
-    private func vortexLayer(
-        trim: CGFloat,
-        lineWidth: CGFloat,
-        colors: [Color],
-        rotation: Double
-    ) -> some View {
-        
-        Circle()
-            .trim(from: 0, to: trim * progress)
-            .stroke(
-                AngularGradient(
-                    gradient: Gradient(colors: colors),
-                    center: .center
-                ),
-                style: StrokeStyle(
-                    lineWidth: lineWidth,
-                    lineCap: .round
-                )
-            )
-            .rotationEffect(.degrees(progress * 360 * rotation))
-            .blendMode(.plusLighter)
-            .blur(radius: 4)
-            .opacity(progress)
-            .frame(width: 190, height: 190)
-    }
-    
-    // MARK: Hold Logic (5 seconds)
-    
-    private func startHoldProgress() {
-        
+
+    @State private var holdTask: Task<Void, Never>?
+
+    private func startHold() {
+
+        holdTask?.cancel()
+
         progress = 0
-        
-        holdTimer = Timer.scheduledTimer(withTimeInterval: 0.01, repeats: true) { timer in
-            
-            progress += 0.002  // 5 seconds total
-            
-            if progress >= 1 {
-                timer.invalidate()
-                holdTimer = nil
+
+        holdTask = Task {
+
+            let duration: Double = 5
+            let steps = 100
+            let stepTime = duration / Double(steps)
+
+            for i in 0...steps {
+
+                try? await Task.sleep(
+                    nanoseconds: UInt64(stepTime * 1_000_000_000)
+                )
+
+                await MainActor.run {
+                    progress = CGFloat(i) / CGFloat(steps)
+                }
+
+                if Task.isCancelled { return }
+            }
+
+            await MainActor.run {
                 completeHold()
             }
         }
     }
-    
+
     private func cancelHold() {
-        holdTimer?.invalidate()
-        holdTimer = nil
-        
-        withAnimation(.easeOut(duration: 0.3)) {
+        holdTask?.cancel()
+        holdTask = nil
+
+        withAnimation(.easeOut(duration: 0.25)) {
             progress = 0
         }
     }
+
     
     private func completeHold() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
@@ -203,18 +161,16 @@ struct AlarmRingingView: View {
         }
     }
     
-    // MARK: Safe Placement
-    
     private func generateRandomPosition(in size: CGSize) {
         
-        let radius: CGFloat = 95
+        let radius: CGFloat = 110
         let padding = radius + 20
         
         let minX = padding
         let maxX = size.width - padding
         
-        let minY = size.height * 0.42
-        let maxY = size.height - 120
+        let minY = size.height * 0.45
+        let maxY = size.height - 150
         
         buttonPosition = CGPoint(
             x: CGFloat.random(in: minX...maxX),

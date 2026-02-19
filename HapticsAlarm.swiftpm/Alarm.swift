@@ -1,10 +1,10 @@
 import Foundation
 
-struct Alarm: Identifiable, Codable {
+struct Alarm: Identifiable, Codable, Equatable {
     
-    var id: UUID
+    let id: UUID
     var time: Date
-    var repeatDays: Set<Int>   // 1 = Sunday ... 7 = Saturday
+    var repeatDays: Set<Int>
     var label: String
     var soundID: String
     var snoozeEnabled: Bool
@@ -15,7 +15,7 @@ struct Alarm: Identifiable, Codable {
         time: Date,
         repeatDays: Set<Int> = [],
         label: String = "Alarm",
-        soundID: String = "default",
+        soundID: String = "radial",
         snoozeEnabled: Bool = true,
         isEnabled: Bool = true
     ) {
@@ -26,5 +26,19 @@ struct Alarm: Identifiable, Codable {
         self.soundID = soundID
         self.snoozeEnabled = snoozeEnabled
         self.isEnabled = isEnabled
+    }
+    
+    // MARK: Time Formatter
+    
+    var formattedTime: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: time)
+    }
+    
+    // MARK: Equatable (Compare by ID only)
+    
+    static func == (lhs: Alarm, rhs: Alarm) -> Bool {
+        lhs.id == rhs.id
     }
 }

@@ -11,6 +11,7 @@ final class HapticEngine {
     }
     
     private func prepareEngine() {
+        
         guard CHHapticEngine.capabilitiesForHardware().supportsHaptics else { return }
         
         do {
@@ -21,10 +22,11 @@ final class HapticEngine {
         }
     }
     
-    // Plays a continuous breathing wave
     func playBreathingWave(intensity: Float) {
         
         guard CHHapticEngine.capabilitiesForHardware().supportsHaptics else { return }
+        
+        try? engine?.start()
         
         let intensityParam = CHHapticEventParameter(
             parameterID: .hapticIntensity,
@@ -52,13 +54,8 @@ final class HapticEngine {
         }
     }
     
-    // Stops any running haptics
     func stop() {
-        do {
-            try player?.stop(atTime: 0)
-            try engine?.stop()
-        } catch {
-            print("Haptic stop error:", error)
-        }
+        try? player?.stop(atTime: 0)
+        try? engine?.stop()
     }
 }

@@ -5,17 +5,19 @@ struct AddAlarmView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var selectedTime = Date()
-    @State private var repeatDays: Set<Int> = []   // Proper repeat storage
+    @State private var repeatDays: Set<Int> = []
     @State private var label = "Alarm"
-    @State private var sound = "Radial"
+    @State private var sound = "radial"
     @State private var snoozeEnabled = true
     
     var onSave: (Alarm) -> Void
     
     var body: some View {
         NavigationStack {
+            
             VStack(spacing: 0) {
                 
+                // Time Picker
                 DatePicker(
                     "",
                     selection: $selectedTime,
@@ -80,10 +82,20 @@ struct AddAlarmView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         
+                        // Normalize time to hour + minute only
+                        let calendar = Calendar.current
+                        let components = calendar.dateComponents([.hour, .minute], from: selectedTime)
+                        let normalizedTime = calendar.date(from: components) ?? selectedTime
+                        
+                        // Ensure label is not empty
+                        let finalLabel = label
+                            .trimmingCharacters(in: .whitespaces)
+                            .isEmpty ? "Alarm" : label
+                        
                         let newAlarm = Alarm(
-                            time: selectedTime,
+                            time: normalizedTime,
                             repeatDays: repeatDays,
-                            label: label,
+                            label: finalLabel,
                             soundID: sound,
                             snoozeEnabled: snoozeEnabled,
                             isEnabled: true
@@ -97,9 +109,12 @@ struct AddAlarmView: View {
         }
     }
     
-    // Converts selected days to display text
+    // Converts selected repeat days into readable summary
     private func repeatSummary() -> String {
-        if repeatDays.isEmpty { return "Never" }
+        
+        if repeatDays.isEmpty {
+            return "Never"
+        }
         
         let formatter = DateFormatter()
         guard let symbols = formatter.shortWeekdaySymbols else {

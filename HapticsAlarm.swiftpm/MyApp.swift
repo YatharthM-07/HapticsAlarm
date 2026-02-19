@@ -1,11 +1,11 @@
 import SwiftUI
+import UserNotifications
 
 @main
 struct MyApp: App {
     
     init() {
-        NotificationManager.shared.requestPermission()
-        NotificationManager.shared.configureCategories()
+        setupNotifications()
     }
     
     var body: some Scene {
@@ -13,5 +13,19 @@ struct MyApp: App {
             ContentView()
                 .preferredColorScheme(.dark)
         }
+    }
+    
+    private func setupNotifications() {
+        
+        let center = UNUserNotificationCenter.current()
+        
+        // Set delegate early
+        center.delegate = NotificationManager.shared
+        
+        // Request permission
+        NotificationManager.shared.requestPermission()
+        
+        // Configure alarm categories
+        NotificationManager.shared.configureCategories()
     }
 }

@@ -1,31 +1,32 @@
 //
 //  NotificationManager.swift
-//  HapticsAlarm
 //
 
 import UserNotifications
-import SwiftUI
 
+@MainActor
 final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
-    
-    @MainActor static let shared = NotificationManager()
+
+    static let shared = NotificationManager()
     
     private override init() {
         super.init()
         UNUserNotificationCenter.current().delegate = self
     }
     
-    // Request notification permission
+    // MARK: Permission
+    
     func requestPermission() {
         UNUserNotificationCenter.current()
-            .requestAuthorization(options: [.alert, .sound]) { _, error in
+            .requestAuthorization(options: [.alert, .sound]) { granted, error in
                 if let error = error {
                     print("Notification permission error:", error)
                 }
             }
     }
     
-    // Register alarm category with stop and snooze
+    // MARK: Categories
+    
     func configureCategories() {
         
         let stopAction = UNNotificationAction(
@@ -50,15 +51,33 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current()
             .setNotificationCategories([category])
     }
-
-
-    // Handle notification interaction safely (Swift 6 compliant)
-    func userNotificationCenter(
+    
+    // MARK: Foreground Presentation
+    
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        
+        let identifier = notification.request.identifier
+        
+        await MainActor.run {
+            NotificationCenter.default.post(
+                name: Notification.Name("ALARM_TRIGGERED"),
+                object: identifier
+            )
+        }
+        
+        return [.sound, .banner]
+    }
+    
+    // MARK: Interaction
+    
+    nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
         
-        // Extract everything BEFORE hopping to MainActor
         let identifier = response.notification.request.identifier
         let actionIdentifier = response.actionIdentifier
         
@@ -69,20 +88,17 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             case "STOP_ACTION":
                 NotificationCenter.default.post(
                     name: Notification.Name("ALARM_STOP"),
-                    object: identifier
-                )
+                    object: identifier)
                 
             case "SNOOZE_ACTION":
                 NotificationCenter.default.post(
                     name: Notification.Name("ALARM_SNOOZE"),
-                    object: identifier
-                )
+                    object: identifier)
                 
             default:
                 NotificationCenter.default.post(
                     name: Notification.Name("ALARM_TRIGGERED"),
-                    object: identifier
-                )
+                    object: identifier)
             }
         }
     }
