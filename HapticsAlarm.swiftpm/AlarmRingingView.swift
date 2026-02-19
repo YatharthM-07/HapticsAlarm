@@ -7,30 +7,43 @@ struct AlarmRingingView: View {
     
     let alarm: Alarm
     
+    // Hold progress
     @State private var progress: Double = 0
-    @State private var buttonPosition: CGPoint = .zero
-    
-    @State private var isPressing = false
     @State private var holdTimer: Timer?
     
+    // Wave animation phases
+    @State private var phase1: Double = 0
+    @State private var phase2: Double = 0
+    @State private var phase3: Double = 0
+    
+    // UI state
+    @State private var buttonPosition: CGPoint = .zero
     @State private var glowOpacity: Double = 0
-    @State private var backgroundPulse: Double = 0.15
+    @State private var backgroundPulse: Double = 0.28
     
     var body: some View {
         GeometryReader { geometry in
             
             ZStack {
                 
-                // Breathing background
+                // Neon breathing background
                 Color.black
                     .overlay(
-                        Circle()
-                            .fill(Color.blue.opacity(backgroundPulse))
-                            .scaleEffect(1.6)
-                            .blur(radius: 140)
+                        RadialGradient(
+                            colors: [
+                                Color.cyan.opacity(backgroundPulse),
+                                Color.blue.opacity(backgroundPulse * 0.8),
+                                Color.indigo.opacity(backgroundPulse * 0.5),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 900
+                        )
+                        .blur(radius: 200)
                     )
                     .ignoresSafeArea()
-                    .animation(.easeInOut(duration: 2), value: backgroundPulse)
+                    .animation(.easeInOut(duration: 1.8), value: backgroundPulse)
                 
                 VStack(spacing: 20) {
                     
@@ -45,18 +58,20 @@ struct AlarmRingingView: View {
                     
                     Spacer()
                     
+                    // Reactive center glow
                     Circle()
-                        .fill(Color.blue.opacity(Double(viewModel.intensity)))
+                        .fill(Color.cyan.opacity(Double(viewModel.intensity)))
                         .frame(
                             width: 140 + CGFloat(viewModel.intensity * 160),
                             height: 140 + CGFloat(viewModel.intensity * 160)
                         )
-                        .blur(radius: 60)
+                        .blur(radius: 70)
                         .animation(.easeInOut(duration: 1.2), value: viewModel.intensity)
                     
                     Spacer()
                 }
             }
+            .animation(nil, value: progress) // prevent layout shift
             .overlay(
                 holdButton
                     .position(buttonPosition)
@@ -64,7 +79,6 @@ struct AlarmRingingView: View {
             .onAppear {
                 viewModel.startAlarm(soundID: alarm.soundID)
                 generateRandomPosition(in: geometry.size)
-                animateBackground()
             }
             .onDisappear {
                 viewModel.stopAlarm()
@@ -72,19 +86,19 @@ struct AlarmRingingView: View {
         }
     }
     
-    // MARK: Electric Stop Button
+    // MARK: Stop Button
     
     private var holdButton: some View {
         ZStack {
             
-            // Neon glow layer
+            // Outer glow
             Circle()
                 .stroke(
                     LinearGradient(
                         colors: [
                             Color.white,
-                            Color.blue,
                             Color.cyan,
+                            Color.blue,
                             Color.white
                         ],
                         startPoint: .topLeading,
@@ -92,50 +106,73 @@ struct AlarmRingingView: View {
                     ),
                     lineWidth: 6
                 )
-                .blur(radius: isPressing ? 8 : 0)
+                .blur(radius: 10)
                 .opacity(glowOpacity)
                 .frame(width: 170, height: 170)
             
-            // Rotating segmented energy ring
-            Circle()
-                .trim(from: 0, to: 0.75)
-                .stroke(
-                    AngularGradient(
-                        gradient: Gradient(colors: [
-                            Color.white,
-                            Color.blue,
-                            Color.cyan,
-                            Color.white
-                        ]),
-                        center: .center
-                    ),
-                    style: StrokeStyle(lineWidth: 5, lineCap: .round, dash: [12, 18])
-                )
-                .rotationEffect(.degrees(rotation))
-                .frame(width: 170, height: 170)
+            // Wave Layer 1
+            WaveRingShape(
+                progress: progress,
+                phase: phase1,
+                amplitude: 8,
+                frequency: 11
+            )
+            .stroke(
+                AngularGradient(
+                    gradient: Gradient(colors: [
+                        Color.cyan,
+                        Color.white,
+                        Color.blue,
+                        Color.cyan
+                    ]),
+                    center: .center
+                ),
+                lineWidth: 3
+            )
+            .blur(radius: 2)
+            .frame(width: 170, height: 170)
             
-            // Inner base circle
-            Circle()
-                .stroke(Color.white.opacity(0.2), lineWidth: 2)
-                .frame(width: 150, height: 150)
+            // Wave Layer 2
+            WaveRingShape(
+                progress: progress,
+                phase: phase2,
+                amplitude: 10,
+                frequency: 15
+            )
+            .stroke(
+                AngularGradient(
+                    gradient: Gradient(colors: [
+                        Color.white.opacity(0.8),
+                        Color.cyan,
+                        Color.blue
+                    ]),
+                    center: .center
+                ),
+                lineWidth: 2
+            )
+            .blur(radius: 1.5)
+            .frame(width: 170, height: 170)
             
-            // Hold progress ring
-            Circle()
-                .trim(from: 0, to: holdProgress)
-                .stroke(
-                    Color.white,
-                    style: StrokeStyle(lineWidth: 6, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .frame(width: 150, height: 150)
-                .animation(.linear(duration: 2), value: holdProgress)
+            // Wave Layer 3
+            WaveRingShape(
+                progress: progress,
+                phase: phase3,
+                amplitude: 4,
+                frequency: 30
+            )
+
+            .stroke(
+                Color.white.opacity(0.8),
+                lineWidth: 1.5
+            )
+            .frame(width: 170, height: 170)
             
             Text("Hold to Stop")
                 .foregroundColor(.white)
                 .font(.headline)
         }
         .gesture(
-            LongPressGesture(minimumDuration: 2)
+            LongPressGesture(minimumDuration: 5)
                 .onChanged { _ in
                     if holdTimer == nil {
                         startHoldProgress()
@@ -145,58 +182,79 @@ struct AlarmRingingView: View {
                     cancelHold()
                 }
         )
-
     }
     
-    // MARK: Electric Animation
+    // MARK: Hold Logic (5 seconds)
     
-    private func startElectricAnimation() {
-        isPressing = true
-        glowOpacity = 1
+    private func startHoldProgress() {
         
+        glowOpacity = 1
+        progress = 0
+        
+        // Animate wave phases
         withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) {
-            rotation = 360
+            phase1 = 360
+        }
+        withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
+            phase2 = -360
+        }
+        withAnimation(.linear(duration: 0.8).repeatForever(autoreverses: false)) {
+            phase3 = 360
+        }
+        
+        holdTimer = Timer.scheduledTimer(withTimeInterval: 0.01, repeats: true) { timer in
+            progress += 0.002   // 5 seconds total
+            
+            if progress >= 1 {
+                timer.invalidate()
+                holdTimer = nil
+                completeHold()
+            }
         }
     }
     
-    private func stopElectricAnimation() {
-        isPressing = false
+    private func cancelHold() {
+        holdTimer?.invalidate()
+        holdTimer = nil
         
         withAnimation(.easeOut(duration: 0.3)) {
+            progress = 0
             glowOpacity = 0
-            rotation = 0
+        }
+        
+        phase1 = 0
+        phase2 = 0
+        phase3 = 0
+    }
+    
+    private func completeHold() {
+        
+        withAnimation(.easeIn(duration: 0.2)) {
+            glowOpacity = 0
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            viewModel.stopAlarm()
+            dismiss()
         }
     }
     
-    // MARK: Safe Random Position
+    // MARK: Safe Button Placement
     
     private func generateRandomPosition(in size: CGSize) {
         
-        let buttonRadius: CGFloat = 85
-        let horizontalPadding: CGFloat = buttonRadius + 20
+        let radius: CGFloat = 95
+        let padding = radius + 20
         
-        let topUnsafeHeight: CGFloat = size.height * 0.35
-        let bottomUnsafeHeight: CGFloat = size.height - 120
+        let minX = padding
+        let maxX = size.width - padding
         
-        let minX = horizontalPadding
-        let maxX = size.width - horizontalPadding
-        
-        let minY = topUnsafeHeight
-        let maxY = bottomUnsafeHeight
+        let minY = size.height * 0.42
+        let maxY = size.height - 120
         
         buttonPosition = CGPoint(
             x: CGFloat.random(in: minX...maxX),
             y: CGFloat.random(in: minY...maxY)
         )
-    }
-    
-    // MARK: Background Pulse
-    
-    private func animateBackground() {
-        Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
-            withAnimation {
-                backgroundPulse = backgroundPulse == 0.15 ? 0.3 : 0.15
-            }
-        }
     }
 }
