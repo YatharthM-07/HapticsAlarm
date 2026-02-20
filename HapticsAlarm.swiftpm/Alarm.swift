@@ -28,7 +28,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         self.isEnabled = isEnabled
     }
     
-    // MARK: Time Formatter
+   
     
     var formattedTime: String {
         let formatter = DateFormatter()
@@ -36,7 +36,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         return formatter.string(from: time)
     }
     
-    // MARK: Equatable (Compare by ID only)
+    
     
     static func == (lhs: Alarm, rhs: Alarm) -> Bool {
         lhs.id == rhs.id

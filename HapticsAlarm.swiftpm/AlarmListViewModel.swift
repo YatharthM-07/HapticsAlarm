@@ -12,8 +12,7 @@ final class AlarmListViewModel: ObservableObject {
         loadAlarms()
     }
 
-    // MARK: Add Alarm
-
+   
     func addAlarm(_ alarm: Alarm) {
         alarms.append(alarm)
 
@@ -24,8 +23,7 @@ final class AlarmListViewModel: ObservableObject {
         saveAlarms()
     }
 
-    // MARK: Enable / Disable
-
+  
     func setAlarm(_ alarm: Alarm, enabled: Bool) {
 
         guard let index = alarms.firstIndex(of: alarm) else { return }
@@ -45,7 +43,7 @@ final class AlarmListViewModel: ObservableObject {
         alarms.first(where: { $0.id == alarm.id })?.isEnabled ?? false
     }
 
-    // MARK: Delete
+  
 
     func deleteAlarm(at offsets: IndexSet) {
         for index in offsets {
@@ -56,16 +54,17 @@ final class AlarmListViewModel: ObservableObject {
         saveAlarms()
     }
 
-    // MARK: Schedule Notification
+    
 
     private func scheduleAlarm(_ alarm: Alarm) {
 
         let content = UNMutableNotificationContent()
         content.title = alarm.label.isEmpty ? "Alarm" : alarm.label
         content.body = "Wake up"
-        content.sound = .default
+        content.sound = UNNotificationSound(
+            named: UNNotificationSoundName("\(alarm.soundID)")
+        )
         content.categoryIdentifier = "ALARM_CATEGORY"
-
         let components = Calendar.current.dateComponents([.hour, .minute], from: alarm.time)
 
         let trigger = UNCalendarNotificationTrigger(
@@ -82,14 +81,14 @@ final class AlarmListViewModel: ObservableObject {
         UNUserNotificationCenter.current().add(request)
     }
 
-    // MARK: Remove
+    
 
     private func removeScheduledAlarm(_ alarm: Alarm) {
         UNUserNotificationCenter.current()
             .removePendingNotificationRequests(withIdentifiers: [alarm.id.uuidString])
     }
 
-    // MARK: Persistence
+    
 
     private func saveAlarms() {
         if let encoded = try? JSONEncoder().encode(alarms) {

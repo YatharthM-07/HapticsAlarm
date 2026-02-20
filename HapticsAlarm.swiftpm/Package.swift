@@ -16,12 +16,12 @@ let package = Package(
         .iOSApplication(
             name: "HapticsAlarm",
             targets: ["AppModule"],
-            bundleIdentifier: "abc.HapticsAlarm",
-            teamIdentifier: "NNWBH23R7Y",
+            bundleIdentifier: "geu.com.HapticsAlarm",
+            teamIdentifier: "4V4N4KN9VA",
             displayVersion: "1.0",
             bundleVersion: "1",
-            appIcon: .placeholder(icon: .gamepad),
-            accentColor: .presetColor(.yellow),
+            appIcon: .placeholder(icon: .clock),
+            accentColor: .presetColor(.mint),
             supportedDeviceFamilies: [
                 .pad,
                 .phone

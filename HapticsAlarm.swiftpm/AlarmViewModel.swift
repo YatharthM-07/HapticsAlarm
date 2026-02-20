@@ -45,8 +45,16 @@ final class AlarmViewModel: ObservableObject {
 
                     if elapsed > 15 && !soundStarted {
                         soundStarted = true
+                        print(" Starting audio:", soundID)
                         audioManager.play(soundName: soundID)
-                        audioManager.fadeIn(duration: 5)
+
+                        // Small delay to let AVAudioPlayer fully initialize
+                        // before we start ramping the volume
+                        try? await Task.sleep(nanoseconds: 300_000_000) // 0.3s
+
+                        guard isRinging else { break }
+
+                        audioManager.fadeIn(duration: 8) // gradual 8s ramp
                     }
                 }
             }

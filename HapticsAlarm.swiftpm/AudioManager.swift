@@ -11,50 +11,53 @@ final class AudioManager {
     
     private init() {}
     
-    // MARK: Play
+  
     
     func play(soundName: String) {
-        
-        guard let url = Bundle.main.url(forResource: soundName, withExtension: "mp3") else {
-            print("Sound file not found:", soundName)
+        guard let data = SoundAssets.data(for: soundName) else {
+            print(" Sound not found:", soundName)
             return
         }
-        
         do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try AVAudioSession.sharedInstance()
+                .setCategory(.playback, mode: .default, options: [.duckOthers])
             try AVAudioSession.sharedInstance().setActive(true)
             
-            player = try AVAudioPlayer(contentsOf: url)
+            player = try AVAudioPlayer(data: data)
             player?.numberOfLoops = -1
             player?.volume = 0.0
             player?.prepareToPlay()
             player?.play()
-            
         } catch {
-            print("Audio error:", error)
+            print(" Audio error:", error)
         }
     }
     
-    // MARK: Smooth Fade In
+   
     
-    func fadeIn(duration: TimeInterval = 5) {
+    func fadeIn(duration: TimeInterval = 8) {
         
         guard let player = player else { return }
         
+        player.volume = 0.0
         volumeTimer?.invalidate()
         
         let stepInterval: TimeInterval = 0.05
         let steps = duration / stepInterval
         let volumeStep = 1.0 / Float(steps)
         
-        volumeTimer = Timer.scheduledTimer(withTimeInterval: stepInterval,
-                                           repeats: true) { [weak self] timer in
+        volumeTimer = Timer.scheduledTimer(
+            withTimeInterval: stepInterval,
+            repeats: true
+        ) { [weak self] timer in
             
-            guard let self else { return }
-            guard let player = self.player else { return }
+            guard let self, let player = self.player else {
+                timer.invalidate()
+                return
+            }
             
             if player.volume < 1.0 {
-                player.volume += volumeStep
+                player.volume = min(player.volume + volumeStep, 1.0)
             } else {
                 player.volume = 1.0
                 timer.invalidate()
@@ -64,7 +67,7 @@ final class AudioManager {
         RunLoop.main.add(volumeTimer!, forMode: .common)
     }
     
-    // MARK: Smooth Fade Out
+    
     
     func fadeOut(duration: TimeInterval = 1.5) {
         
@@ -76,20 +79,23 @@ final class AudioManager {
         let steps = duration / stepInterval
         let volumeStep = player.volume / Float(steps)
         
-        volumeTimer = Timer.scheduledTimer(withTimeInterval: stepInterval,
-                                           repeats: true) { [weak self] timer in
+        volumeTimer = Timer.scheduledTimer(
+            withTimeInterval: stepInterval,
+            repeats: true
+        ) { [weak self] timer in
             
-            guard let self else { return }
-            guard let player = self.player else { return }
+            guard let self, let player = self.player else {
+                timer.invalidate()
+                return
+            }
             
             if player.volume > 0 {
-                player.volume -= volumeStep
+                player.volume = max(player.volume - volumeStep, 0)
             } else {
                 player.volume = 0
                 player.stop()
                 self.player = nil
                 timer.invalidate()
-                
                 try? AVAudioSession.sharedInstance().setActive(false)
             }
         }
@@ -97,7 +103,7 @@ final class AudioManager {
         RunLoop.main.add(volumeTimer!, forMode: .common)
     }
     
-    // MARK: Immediate Stop (Emergency)
+    
     
     func stop() {
         volumeTimer?.invalidate()

@@ -14,7 +14,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().delegate = self
     }
     
-    // MARK: Permission
+    
     
     func requestPermission() {
         UNUserNotificationCenter.current()
@@ -25,7 +25,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             }
     }
     
-    // MARK: Categories
+   
     
     func configureCategories() {
         
@@ -52,7 +52,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             .setNotificationCategories([category])
     }
     
-    // MARK: Foreground Presentation
+    
     
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
@@ -71,7 +71,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         return [.sound, .banner]
     }
     
-    // MARK: Interaction
+   
     
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
